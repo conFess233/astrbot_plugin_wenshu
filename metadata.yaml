@@ -1,7 +1,7 @@
 name: astrbot_plugin_wenshu
 display_name: 文枢
 desc: 按意图选择预设，联网与知识库核实资料，独立生成指定风格文案。
-version: 1.0
+version: 0.1.0
 author: conFess233
 repo: https://github.com/conFess233/astrbot_plugin_wenshu
 support_platforms:
