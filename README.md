@@ -1,14 +1,185 @@
-# astrbot-plugin-helloworld
+<h1 align="center">文枢 · Wenshu</h1>
+<p align="center">按意图选预设，以检索核实事实，独立生成指定风格文案。</p>
+<p align="center"><img src="https://img.shields.io/badge/version-1.0-7367f0" alt="Version 1.0"> <img src="https://img.shields.io/badge/platform-OneBot%20v11-blue" alt="OneBot v11"> <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="AGPL-3.0"></p>
+<p align="center"><a href="#quick-start">快速开始</a> · <a href="#usage">使用方法</a> · <a href="#configuration">配置</a> · <a href="#webui">管理页面</a> · <a href="#limits">已知限制</a></p>
 
-AstrBot 插件模板 / A template plugin for AstrBot plugin feature
+把长提示词和完整范文留在预设里，只有真正需要时才使用。文枢按关键词或正则筛选候选，再根据预设执行模式独立检索生成，或直接发送固定文案。
 
-> [!NOTE]
-> This repo is just a template of [AstrBot](https://github.com/AstrBotDevs/AstrBot) Plugin.
-> 
-> [AstrBot](https://github.com/AstrBotDevs/AstrBot) is an agentic assistant for both personal and group conversations. It can be deployed across dozens of mainstream instant messaging platforms, including QQ, Telegram, Feishu, DingTalk, Slack, LINE, Discord, Matrix, etc. In addition, it provides a reliable and extensible conversational AI infrastructure for individuals, developers, and teams. Whether you need a personal AI companion, an intelligent customer support agent, an automation assistant, or an enterprise knowledge base, AstrBot enables you to quickly build AI applications directly within your existing messaging workflows.
+## 能力
 
-# Supports
+| 能力       | 行为                                                         |
+| ---------- | ------------------------------------------------------------ |
+| 自定义预设 | 关键词、正则、意图说明、生成要求、完整范文、固定开头和段落数 |
+| 独立路由   | 多个候选只做一次意图检测，最多选择一个；不匹配放行           |
+| 两阶段模型 | 分别选择检测和生成 provider，全局默认、预设覆盖              |
+| 联网检索   | 复用当前会话有效 AstrBot 配置文件的搜索服务商与凭证          |
+| 知识库     | 选择宿主已有知识库，不另建上传或索引系统                     |
+| 人格       | 当前人格、指定人格、不加载人格；写作格式以预设为准           |
+| 管理页面   | 预设书架、全局设置、调试台、有界执行摘要，支持明暗主题与窄屏 |
+| 调用控制   | 同一会话同一用户一个任务、全局并发、工具调用预算、总时限     |
 
-- [AstrBot Repo](https://github.com/AstrBotDevs/AstrBot)
-- [AstrBot Plugin Development Docs (Chinese)](https://docs.astrbot.app/dev/star/plugin-new.html)
-- [AstrBot Plugin Development Docs (English)](https://docs.astrbot.app/en/dev/star/plugin-new.html)
+<a id="quick-start"></a>
+
+## 快速开始
+
+接口按本地 **AstrBot v4.28.2** 源码核对，元数据声明 `>=4.28.2,<5`，首版目标平台为 `aiocqhttp`（QQ／OneBot v11）。此范围不是所有版本都已完成实机验收的声明。
+
+1. 将本仓库放入宿主 `data/plugins/astrbot_plugin_wenshu`。尚未声明已上架插件市场。
+2. 在 **AstrBot 实际运行的 Python 环境**安装依赖，并重载插件：
+
+    ```bash
+    python -m pip install -r data/plugins/astrbot_plugin_wenshu/requirements.txt
+    ```
+
+    Docker 部署应在容器的运行环境安装，或让宿主安装插件声明的依赖；不要只安装到宿主机另一套 Python。
+
+3. 打开插件详情的 **Plugin Pages → manage**。
+4. 在“全局设置”选择检测 provider 和生成 provider。检测模型需要遵循 JSON 输出；生成模型需要支持 Function Calling／Tool Calling 和 JSON 输出。纯直接发送预设无需模型；仅判定预设只需检测模型。
+5. 在聊天实际使用的 AstrBot **配置文件（profile）**中启用 Web 搜索并配置服务商。知识库仍在宿主页面创建、导入和索引。
+6. 在文枢中载入示例或创建预设，检查规则和提示词。示例默认未启用。
+7. 在调试台先检查规则，再检测意图或完整试运行。确认结果后启用预设并保存。
+
+只有可能进入检索生成的完整试运行需要真实会话标识，用于解析该会话的配置与人格；可在聊天中发送 `/sid` 查看。固定文案模式不需要该标识。试运行的历史由页面手工提供，不会自动读取真实聊天。
+
+<a id="usage"></a>
+
+## 使用方法
+
+默认群聊需要 @机器人或符合宿主唤醒条件。以已启用的“示例1”为例：
+
+```text
+@bot 我已经一天没听过danking中门鸟狙的故事了
+```
+
+预计流程：规则命中 → 指定检测模型确认讲故事意图和主题 → 指定生成模型检索 → 核对资料后按范文风格回复。具体文案取决于实际检索结果，不保证复现某次历史输出。
+
+- 未命中任何规则：文枢不调用模型。
+- 命中规则但意图不匹配：继续原有聊天处理，主模型是否响应由宿主决定。
+- 确认匹配：默认由文枢独立处理，不执行主聊天回答流程。
+- `我坐好了`：需要只读近期历史能明确定位当前用户的故事主题，否则简短询问。下一条消息需重新带上触发条件和主题。
+- 每次触发只生成一次，不提供连续修改或续写窗口。
+- 同一预设内的关键词和正则是 **任一命中**。多个预设匹配时，检测模型统一选一个；同等适用按优先级及列表顺序决定。
+- 多候选使用最高优先级候选的检测 provider，即使最终选择的是另一个候选。
+
+### 每个预设的执行模式
+
+| `mode`             | 流程                                     | 必需配置                                                 |
+| ------------------ | ---------------------------------------- | -------------------------------------------------------- |
+| `generate`（默认） | 规则筛选 → 一次意图检测 → 检索与生成     | 检测和生成 provider、意图说明、生成要求                  |
+| `direct`           | 规则命中 → 原样发送固定文案              | `reply` 固定文案；不调用模型、不读取历史、不搜索         |
+| `detect_only`      | 规则筛选 → 仅判定意图 → 原样发送固定文案 | 检测 provider、意图说明、`reply`；不搜索、不调用生成模型 |
+
+在编辑区选择执行模式。固定文案保存在独立的 `reply` 字段，不执行变量替换、格式改写、事实核查或生成；空白文案不能启用，最多 30000 字符。仅判定模式只判断是否符合意图，不要求主题完整；不匹配仍放行普通聊天。
+
+旧预设缺少 `mode` 时自动沿用 `generate`，不改变原行为。切换模式保留原有提示词、范文和固定文案，未使用的内容不发送给模型。
+
+多候选按优先级和稳定顺序处理：最高候选为 `direct` 时直接发送，零模型调用；否则把需要检测的候选合并进行一次检测。全部不匹配时，再回退到优先级最高的 `direct` 候选；没有直接发送候选则放行。直接发送候选本身不参与语义检测。
+
+<a id="configuration"></a>
+
+## 配置
+
+宿主 `_conf_schema.json` 和文枢页面编辑同一份配置。页面保存后对新任务生效；运行中的任务使用启动时的独立快照。页面支持草稿、放弃修改、保存失败保留输入，以及版本冲突提示；宿主自身配置编辑器的外部并发写入仍需避免。
+
+| 键                  | 默认值       | 说明                                                                   |
+| ------------------- | ------------ | ---------------------------------------------------------------------- |
+| `enabled`           | `true`       | 总开关；初始预设列表为空，不会自行生成                                 |
+| `detect_provider`   | `""`         | 检测 provider ID，需要手工选择                                         |
+| `generate_provider` | `""`         | 生成 provider ID，需要手工选择                                         |
+| `search_mode`       | `"required"` | `required` 必须成功搜索；`auto` 按需；`off` 不提供联网工具             |
+| `failure_policy`    | `"stop"`     | `stop` 提示并结束；`grounded` 可靠资料降级；`passthrough` 交回普通聊天 |
+| `persona_mode`      | `"current"`  | `current` 当前人格；`specified` 指定；`none` 不加载                    |
+| `persona_id`        | `""`         | 指定人格的 ID／名称                                                    |
+| `kb_ids`            | `[]`         | 选中的知识库 ID；空列表关闭检索                                        |
+| `group_scope`       | `"wake"`     | `wake` 跟随唤醒条件；`all` 监听所有群消息                              |
+| `max_concurrency`   | `2`          | 全局任务数，允许 1～16；无持久化队列                                   |
+| `history_messages`  | `12`         | 最多读取 0～50 条近期消息                                              |
+| `history_chars`     | `8000`       | 历史总字符上限 0～30000；0 关闭                                        |
+| `max_tool_calls`    | `8`          | 每任务最多 1～30 次工具调用，按次数而非轮数计费控制                    |
+| `task_timeout`      | `180`        | 每任务总时限，15～600 秒                                               |
+| `record_limit`      | `200`        | 摘要上限 0～1000 条；0 不保留新记录，旧记录在下次任务写入时清除        |
+| `presets`           | `[]`         | 最多 100 份预设，通过管理页面编辑                                      |
+
+### 预设字段
+
+每份预设含 `id`、`name`、`description`、`enabled`、`priority`、`mode`、`reply`、`keywords`、`patterns`、`intent`、`prompt`、`example`、`opening`、`paragraphs`、`overrides`。宿主还可能添加 `__template_key`。
+
+- `id`：唯一且稳定，最多 80 个字母、数字、下划线或连字符；名称可以自由修改。
+- `intent`：只发给检测模型，说明何时执行和何时不执行。长篇范文不发送给检测模型。
+- `prompt`、`example`：各最多 60000 字符，不做自动摘要或删段。
+- `opening`：为空不校验；非空时发送前检查固定开头。
+- `paragraphs`：0 不校验，1～30 按空行检查正文总段数。示例的开头可能单独占一段，因此不预填“6”。
+- 规则最多 30 个关键词、20 条正则。匹配正文最多 2000 字符，超长消息放行；正则单条预算 15 ms，总预算 100 ms，在线程执行，超时按失败策略处理。
+- 优先级越大越先；相同优先级按书架顺序。上移／下移调整同级顺序。
+
+`overrides` 仅支持 `detect_provider`、`generate_provider`、`persona_mode`、`persona_id`、`kb_ids`、`search_mode`、`failure_policy`、`group_scope`。未勾选表示继承；勾选知识库但不选择任何库表示明确关闭，不能用空字符串或 `null` 冒充继承。
+
+### 搜索、知识库和人格
+
+当前适配的内置搜索服务为 Tavily、Bocha、Brave、Baidu AI Search、Firecrawl、Exa、AnySearch，实际可用项取决于宿主版本。Tavily／Firecrawl／Exa 的资料阅读工具可打开本任务检索到的来源链接。文枢不重复管理 API key，也不修改宿主搜索开关。
+
+当前会话搜索关闭、凭证缺失、不支持该服务商，或人格工具权限禁止搜索时，按模式与失败策略处理。知识库选择与会话明确配置的 `kb_ids` 取交集，显式空会话列表会禁止检索。工具权限取当前人格和指定写作人格的交集；不加载写作人格不代表绕过当前人格限制。
+
+检测和生成请求不执行主聊天人格、世界书、记忆注入等插件钩子。人格模式仅读取人格提示文本，不自动启用其关联的所有工具和其他插件逻辑。
+
+### 失败策略
+
+| 策略         | 行为                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| 提示并结束   | 默认，不调用主聊天模型                                                                                 |
+| 可靠资料降级 | 必须搜索却未成功时，只有实际取得知识库资料、且生成模型判断资料足够才允许输出；不足或生成失败仍提示失败 |
+| 交回普通聊天 | 未尝试最终发送时继续宿主原有流程，可能调用主模型；仍遵守原有唤醒条件                                   |
+
+“必须搜索”配合可靠资料降级允许联网失败的例外，记录为 **降级**，不会伪称搜索成功。检测失败尚未选定预设时用全局失败策略；没有明确主题时不进行降级猜题。
+
+发送结果未知时不重试、不交给主模型，防止重复回复。预算超限、格式不符和资料不足均有明确失败提示，不无限自动修复或重新生成。
+
+<a id="webui"></a>
+
+## 管理页面
+
+页面位于 `pages/manage`，通过 Plugin Pages bridge 复用 Dashboard 认证和主题。后端要求已认证的管理身份；不在页面保存管理令牌。
+
+- **预设书架**：新增、复制、编辑、排序、启停和带确认的删除。启停使用滑动开关，左侧列表提供快捷开关，并与编辑区同步；两处均修改草稿，保存后才生效。
+- **全局设置**：模型、人格、知识库、搜索、失败策略及预算。
+- **调试台**：免费规则检查、付费意图检测和完整试运行；测试使用当前草稿，正文只预览，不发往聊天。规则检查和直接发送模式不产生模型调用；仅判定只产生检测调用。
+- **运行记录**：按预设和结果筛选执行摘要，未返回用量时显示不可用，不估造费用。
+
+完整试运行使用后台任务与轮询，避免 Plugin Pages 60 秒请求上限。结果仅在服务端内存中暂存，完成五分钟后自动清除；页面内结果不写 LocalStorage。重新加载插件会清除后台试运行结果。
+
+## 数据与外部请求
+
+```text
+AstrBot data/
+├── config/ 或宿主所选插件配置位置  # 由 AstrBotConfig 保存预设与默认配置
+└── plugin_data/astrbot_plugin_wenshu/
+    └── runs.json                    # 有界执行摘要
+```
+
+配置中包含完整提示词和范文。执行摘要仅含时间、预设、实际模型 ID、耗时、工具次数、结果和真实可用的 token 用量，不含用户输入、历史、完整检索资料、生成正文或 API key。损坏的摘要文件保留，后续使用 `runs-recovered.json` 保存恢复记录。
+
+群聊历史通过当前群的 OneBot 历史接口只读获取，保留发送者；接口不可用时仅使用当前消息。私聊读取宿主当前会话的用户／机器人历史。历史条数和字符数受限，不持久化插件自己的历史副本。明确主题不足时询问，不把其他群成员的主题直接当作当前用户主题。
+
+必要的当前消息和历史会发送到配置的检测／生成 provider；检索词会发送到所选搜索服务，知识库查询使用宿主配置的检索能力。请按实际场景选择历史范围与服务商。
+
+插件自身不记录完整请求；宿主、provider 适配器或其他插件可能另有日志和消息记录策略，本插件不能替它们保证无记录。
+
+备份时一并备份宿主管理的插件配置和上述摘要目录；不从 WebUI 导出搜索秘密。
+
+<a id="limits"></a>
+
+## 已知限制
+
+- 独立请求不向主聊天主动追加预设、工具或生成历史；其他插件可能记录机器人回复、先行调用模型或改变事件处理。不能承诺任意插件组合下的绝对隔离或上游缓存命中率。
+- 模型对资料充分性和事实的判断仍可能出错。程序验证实际搜索成功、工具范围、开头和段落等确定性条件，不能证明任意自然语言事实都正确。
+- 搜索关闭指不提供文枢管理的联网工具；若选中的 provider 自身强制启用了服务端原生搜索，其行为由 provider 配置控制。
+- 不自动分段、撤回或重发正文；平台风控、长度限制和发送结果未知需在真实环境确认。
+- 页面试运行暂存结果在完成五分钟后删除；关闭页面不会立即取消已提交的任务，任务仍受并发和总时限约束。
+
+## 更新记录
+
+见 [CHANGELOG.md](./CHANGELOG.md)。
+
+## License
+
+[AGPL-3.0](./LICENSE)。

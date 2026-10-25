@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>文枢 · 预设与检索</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="page-header">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">文</div><div><div class="eyebrow">WENSHU / ASTRBOT</div><h1>文枢</h1><p>让每一份预设，在需要时开口。</p></div></div>
+      <button id="refresh" class="secondary">重新加载</button>
+    </header>
+    <div id="status" role="status" aria-live="polite">正在连接 AstrBot…</div>
+    <nav class="tabs" aria-label="管理分区">
+      <button class="tab active" data-tab="presets">预设书架</button>
+      <button class="tab" data-tab="global">全局设置</button>
+      <button class="tab" data-tab="test">调试台</button>
+      <button class="tab" data-tab="records">运行记录</button>
+    </nav>
+    <section id="presets" class="panel">
+      <div class="section-heading"><div><h2>预设书架</h2><p>把触发、意图与写作范本整理在一起。</p></div><div class="actions"><button id="examples" class="secondary">载入示例</button><button id="add">＋ 新建预设</button></div></div>
+      <div class="workspace"><aside><label class="search-label">查找预设<input id="filter" type="search" placeholder="名称或说明"></label><div id="preset-list" class="preset-list"></div></aside><div id="editor" class="card editor"><div class="empty">选择一份预设，或从新建开始。</div></div></div>
+    </section>
+    <section id="global" class="panel" hidden><div class="section-heading"><div><h2>全局设置</h2><p>预设未覆盖的字段，沿用这里的值。</p></div></div><div id="global-fields" class="card form-grid"></div></section>
+    <section id="test" class="panel" hidden>
+      <div class="section-heading"><div><h2>调试台</h2><p>测试当前草稿，不会保存配置，也不会发送到聊天。</p></div><span class="badge">草稿预览</span></div>
+      <div class="test-grid"><div class="card">
+        <label>模拟用户 ID<input id="test-sender" value="test-user"></label>
+        <label>实际会话标识<input id="test-umo" placeholder="检索生成试运行必填，可发送 /sid 查看"></label>
+        <p id="test-profile" class="hint">搜索配置随填写的实际会话读取。</p>
+        <div class="checks"><label><input id="test-group" type="checkbox" checked>群聊</label><label><input id="test-awake" type="checkbox" checked>符合唤醒条件</label></div>
+        <label>用户消息<textarea id="test-message" rows="4" placeholder="我已经一天没听过滔搏的故事了"></textarea></label>
+        <label>近期历史（手工 JSON）<textarea id="test-history" rows="5" spellcheck="false">[]</textarea><small>格式：[{"sender":"用户ID","text":"消息"}]。不会读取真实聊天历史。</small></label>
+        <p class="hint">直接发送模式不调用模型；仅判定只调用检测模型；检索生成会产生模型及检索费用。只有可能进入检索生成的完整试运行才需填写实际会话标识。</p>
+        <div class="actions wrap"><button class="secondary" data-test="rules">检查规则</button><button class="secondary" data-test="detect">检测意图</button><button data-test="full">完整试运行</button></div>
+      </div><div class="card"><h3>执行结果</h3><div id="test-progress" role="status"></div><div id="test-meta" class="hint">尚未执行。</div><div id="test-sources"></div><pre id="test-output" class="output"></pre><button id="copy" class="secondary" disabled>复制正文</button></div></div>
+    </section>
+    <section id="records" class="panel" hidden><div class="section-heading"><div><h2>运行记录</h2><p>仅保存执行摘要，不保存完整聊天、检索资料和生成正文。</p></div><button id="load-records" class="secondary">刷新记录</button></div><div class="record-filters"><label>预设<input id="record-filter" placeholder="名称 / ID"></label><label>结果<select id="record-status"><option value="">全部结果</option value="success">成功</option><option value="degraded">降级</option><option value="failed">失败</option><option value="passthrough">交回普通聊天</option><option value="no_match">不匹配</option><option value="send_unknown">发送未知</option></select></label></div><div id="record-list"></div></section>
+    <footer>文枢 · 独立意图路由与文案生成 <span>1.0</span></footer>
+  </main>
+  <div id="save-bar" class="save-bar" hidden><div><strong>有未保存的修改</strong><small>聊天仍使用已保存配置。</small></div><div class="actions"><button id="discard" class="secondary">放弃修改</button><button id="save">保存配置</button></div></div>
+  <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">确认操作</h2><p id="confirm-body"></p><div class="actions"><button value="cancel" class="secondary">取消</button><button id="confirm-ok" value="ok">确认</button></div></form></dialog>
+</body>
+</html>
