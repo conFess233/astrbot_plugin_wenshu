@@ -1,6 +1,6 @@
 <h1 align="center">文枢 · Wenshu</h1>
 <p align="center">按意图选预设，以检索核实事实，独立生成指定风格文案。</p>
-<p align="center"><img src="https://img.shields.io/badge/version-1.0-7367f0" alt="Version 1.0"> <img src="https://img.shields.io/badge/platform-OneBot%20v11-blue" alt="OneBot v11"> <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="AGPL-3.0"></p>
+<p align="center"><img src="https://img.shields.io/badge/version-1.0-7367f0" alt="Version 0.1.0"> <img src="https://img.shields.io/badge/platform-OneBot%20v11-blue" alt="OneBot v11"> <img src="https://img.shields.io/badge/license-AGPL--3.0-green" alt="AGPL-3.0"></p>
 <p align="center"><a href="#quick-start">快速开始</a> · <a href="#usage">使用方法</a> · <a href="#configuration">配置</a> · <a href="#webui">管理页面</a> · <a href="#limits">已知限制</a></p>
 
 把长提示词和完整范文留在预设里，只有真正需要时才使用。文枢按关键词或正则筛选候选，再根据预设执行模式独立检索生成，或直接发送固定文案。
